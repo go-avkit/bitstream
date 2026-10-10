@@ -37,6 +37,29 @@ whatever follows.
 **Windows, macOS, Linux; six 64-bit architectures.** 100% statement coverage,
 gated in CI.
 
+## A width the value cannot hold
+
+`Bits` returns a `uint32`, so it reads **0 to 32** bits and refuses anything
+else with `ErrWidth`. There is no 64-bit reader, so no caller can want more.
+
+⛔ **It used to answer silently.** `Bits(33)` gave the *second* bit to the
+thirty-third — the top one shifted out of the `uint32` — with **no error** and
+the position correctly advanced, so nothing downstream could notice. The value
+returned was a field nobody asked for:
+
+```
+Bits(33)          = 0xbd5b7ddf
+Bit(); Bits(32)   = 0xbd5b7ddf    identical
+```
+
+A **negative** width read nothing and said nothing, which is how a width
+computed one field too early arrives here.
+
+The refusal happens **before** any bit is consumed, so a caller that handles the
+error can read the field another way. Both ends are read: 0 and 32 are widths
+the value holds, and `UE` needs a 32-bit read to reach its largest value
+(2³²−1, from a 65-bit code) — a bound at 31 breaks it, and there is a witness.
+
 ## Licence
 
 BSD-3-Clause.
