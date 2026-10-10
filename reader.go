@@ -3,7 +3,10 @@
 
 package bitstream
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Errors a reader can refuse with.
 var (
@@ -12,6 +15,10 @@ var (
 	// ErrTooLong means an Exp-Golomb code claims more leading zeros than any
 	// value these formats state could need.
 	ErrTooLong = errors.New("bitstream: Exp-Golomb code is longer than any value needs")
+
+	// ErrWidth means a read was asked for a number of bits the value it returns
+	// cannot hold, or a negative one. Both used to be answered silently.
+	ErrWidth = errors.New("bitstream: a width the value cannot hold")
 )
 
 // maxLeadingZeros bounds an Exp-Golomb prefix.
@@ -57,6 +64,16 @@ func (r *Reader) Bit() (uint32, error) {
 
 // Bits reads n bits, most significant first.
 func (r *Reader) Bits(n int) (uint32, error) {
+	// ⛔ A width the RETURN TYPE cannot hold. Asking for 33 bits used to give
+	// the SECOND to the thirty-third -- the top bit shifted out of the uint32
+	// in silence -- with no error and the position correctly advanced, so
+	// nothing downstream could notice. The value was a field nobody asked for.
+	//
+	// A negative width read nothing and said nothing, which is how a width
+	// computed one field too early arrives here.
+	if n < 0 || n > 32 {
+		return 0, fmt.Errorf("%w: %d bits do not fit the value read", ErrWidth, n)
+	}
 	var v uint32
 	for i := 0; i < n; i++ {
 		b, err := r.Bit()
