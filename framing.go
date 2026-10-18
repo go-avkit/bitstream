@@ -97,16 +97,22 @@ func SplitLengthPrefixed(data []byte, sizeBytes int) ([][]byte, error) {
 			return nil, fmt.Errorf("%w: %d bytes left, a length needs %d",
 				ErrLengthOverrun, len(data)-off, sizeBytes)
 		}
-		n := int(readLength(data[off : off+sizeBytes]))
+		stated := readLength(data[off : off+sizeBytes])
 		off += sizeBytes
-		if n == 0 {
+		if stated == 0 {
 			// A zero length is padding an encoder may write, and describes no
 			// unit at all.
 			continue
 		}
-		if off+n > len(data) {
-			return nil, fmt.Errorf("%w: %d bytes claimed, %d left", ErrLengthOverrun, n, len(data)-off)
+		// ⛔ Compared as the unsigned value it is, BEFORE it becomes an int.
+		// Where int is 32 bits wide, a length of 2^31 or more converts to a
+		// negative number, which passed the overrun check and then sliced
+		// backwards: any four bytes at or above 0x80 00 00 00 in a downloaded
+		// sample panicked the caller on arm, 386 and the other 32-bit targets.
+		if uint64(stated) > uint64(len(data)-off) {
+			return nil, fmt.Errorf("%w: %d bytes claimed, %d left", ErrLengthOverrun, stated, len(data)-off)
 		}
+		n := int(stated)
 		out = append(out, data[off:off+n])
 		off += n
 	}
