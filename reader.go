@@ -6,6 +6,7 @@ package bitstream
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 // Errors a reader can refuse with.
@@ -121,7 +122,14 @@ func (r *Reader) UE() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	return (1<<uint(zeros) - 1) + rest, nil
+	// ⛔ Summed in 64 bits: at 32 leading zeros the base is 2^32 - 1, and any
+	// suffix but zero carried the sum past the uint32 -- wrapping to a small
+	// value nobody wrote. What does not fit is the over-long code it is.
+	v := uint64(1)<<uint(zeros) - 1 + uint64(rest)
+	if v > math.MaxUint32 {
+		return 0, ErrTooLong
+	}
+	return uint32(v), nil
 }
 
 // SE reads a signed Exp-Golomb integer, which is the unsigned one folded so that
