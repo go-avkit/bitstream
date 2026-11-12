@@ -4,6 +4,7 @@
 package bitstream
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -75,15 +76,65 @@ func (r *Reader) Bits(n int) (uint32, error) {
 	if n < 0 || n > 32 {
 		return 0, fmt.Errorf("%w: %d bits do not fit the value read", ErrWidth, n)
 	}
-	var v uint32
-	for i := 0; i < n; i++ {
-		b, err := r.Bit()
-		if err != nil {
-			return 0, err
-		}
-		v = v<<1 | b
+	if n > r.Left() {
+		// The bits that were there are consumed, as when they were read one by one.
+		r.pos = len(r.data) * 8
+		return 0, ErrShort
 	}
+	v := r.window(n)
+	r.pos += n
 	return v, nil
+}
+
+// window returns the n bits (0 <= n <= 32) that start at the current position,
+// with zeros past the end of the data. It does not move.
+func (r *Reader) window(n int) uint32 {
+	i := r.pos >> 3
+	var w uint64
+	if i+8 <= len(r.data) {
+		w = binary.BigEndian.Uint64(r.data[i:])
+	} else {
+		for k := 0; k < 8; k++ {
+			w <<= 8
+			if i+k < len(r.data) {
+				w |= uint64(r.data[i+k])
+			}
+		}
+	}
+	// pos&7 <= 7 and n <= 32, so the bits wanted lie inside the top 39 bits of w.
+	return uint32(w << uint(r.pos&7) >> uint(64-n))
+}
+
+// Skip moves n bits forward. It returns ErrShort, and does not move, when fewer
+// than n bits remain, and ErrWidth for a negative n.
+func (r *Reader) Skip(n int) error {
+	if n < 0 {
+		return fmt.Errorf("%w: %d bits cannot be skipped", ErrWidth, n)
+	}
+	if n > r.Left() {
+		return ErrShort
+	}
+	r.pos += n
+	return nil
+}
+
+// Align moves to the next byte boundary, and stays where it is when already on
+// one. The syntaxes of the audio codecs align before a byte-oriented field.
+func (r *Reader) Align() { r.pos = (r.pos + 7) &^ 7 }
+
+// PeekPadded returns the next n bits (0 <= n <= 32) without consuming them, with
+// zeros for the bits past the end of the data: it never refuses for a short
+// stream. A prefix-code decoder that looks up its next code in a table needs the
+// longest code's worth of bits even when the last code of a stream is shorter.
+// Peek is the one that refuses.
+func (r *Reader) PeekPadded(n int) (uint32, error) {
+	if n < 0 || n > 32 {
+		return 0, fmt.Errorf("%w: %d bits do not fit the value read", ErrWidth, n)
+	}
+	if n == 0 {
+		return 0, nil
+	}
+	return r.window(n), nil
 }
 
 // Peek reads n bits without consuming them.

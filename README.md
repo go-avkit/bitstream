@@ -19,7 +19,7 @@ delta, err := r.SE()                         // Exp-Golomb, signed
 | `SplitAnnexB` | units separated by `00 00 01` / `00 00 00 01` start codes |
 | `SplitLengthPrefixed` | units behind a 1-, 2- or 4-byte length, as a sample from an MP4 track carries them |
 | `Unescape` | removes the emulation-prevention bytes (`00 00 03`) |
-| `Reader` | `Bit`, `Bits`, `Peek`, `UE`, `SE`, `Pos`, `Left`, `MoreData` |
+| `Reader` | `Bit`, `Bits`, `Peek`, `PeekPadded`, `Skip`, `Align`, `UE`, `SE`, `Pos`, `Left`, `MoreData` |
 
 **`Unescape` is the one that gets forgotten.** A unit read without it is not
 broken, it is subtly *wrong*: the bytes are all there, in order, with an extra
