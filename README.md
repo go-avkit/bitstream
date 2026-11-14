@@ -1,5 +1,11 @@
 # bitstream
 
+[![ci](https://github.com/go-avkit/bitstream/actions/workflows/ci.yml/badge.svg)](https://github.com/go-avkit/bitstream/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/go-avkit/bitstream.svg)](https://pkg.go.dev/github.com/go-avkit/bitstream)
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
+
+Part of [go-avkit](https://go-avkit.github.io): [documentation](https://go-avkit.github.io/docs/).
+
 Pure-Go (CGO=0) primitives every H.264/H.265-family reader needs before it can
 parse anything: a bit reader with the formats' own integer codings, the two NAL
 framings, and the unescaping that a payload is meaningless without.
